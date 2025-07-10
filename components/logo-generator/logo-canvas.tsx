@@ -69,7 +69,7 @@ export function LogoCanvas() {
   );
 
   return (
-    <div className="w-full h-full" style={{ height: "calc(100vh - 80px)" }}>
+    <div className="w-full h-full relative" style={{ height: "calc(100vh - 80px)" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -81,8 +81,8 @@ export function LogoCanvas() {
         <Background />
         <Controls />
         <MiniMap />
-        <Toolbar onGenerate={handleGenerate} isGenerating={isGenerating} />
       </ReactFlow>
+      <Toolbar onGenerate={handleGenerate} isGenerating={isGenerating} />
     </div>
   );
 } 
