@@ -1,0 +1,152 @@
+---
+alwaysApply: true
+---
+1. Introduction & Goals
+Logo Generator is a minimal web application that leverages AI (OpenAI API) to produce simple, clean logos based on a user-supplied brand name. The MVP focuses on:
+
+Allowing authenticated users to submit a brand name.
+Invoking an AI service to generate a logo.
+Persists and displays the generated logo.
+Providing a fluid, responsive UI with ShadCN + Tailwind CSS.
+Ensuring a secure, scalable foundation (Next.js SSR, Supabase, Clerk).
+2. Problem Statement & Target Audience
+Pain Points:
+
+Small businesses and freelancers often lack design expertise or budget for logo creation.
+Current tools are either complex (Canva) or expensive (Looka).
+Need for a one-step, AI-driven solution that’s both affordable and intuitive.
+Target Audience:
+
+Small Business Owners: Entrepreneurs seeking quick, low-cost branding.
+Freelancers: Independent workers who need on-demand logos for client projects.
+3. Feature Deep-Dive
+3.1 Input Brand Name
+Plain-language description & user journey
+
+User lands on the “Create Logo” page.
+A form prompts the user to input their brand name.
+On submit, the brand name is recorded in the database with status = “pending.”
+Interaction & dependencies
+
+Feeds directly into Generate Logo.
+Requires Clerk authentication: associates submission with a user.
+Database schema (Drizzle ORM)
+
+// /db/schema/logos.ts
+import { pgTable, serial, varchar, text, timestamp } from "drizzle-orm/pg-core";
+
+export const logos = pgTable("logos", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull(),        // Clerk user ID
+  brandName: varchar("brand_name", { length: 100 }).notNull(),
+  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  imageUrl: text("image_url").default(""),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+Edge cases or assumptions
+Empty or whitespace-only brand names are rejected.
+Maximum 100 characters.
+Duplicate brand names are allowed (tracked per user).
+3.2 Generate Logo
+Plain-language description & user journey
+
+Upon brand name submission, server-side action triggers.
+Calls the OpenAI API (or custom AI endpoint) with the brand name prompt.
+Receives an image URL or Base64 payload.
+Interaction & dependencies
+
+Depends on the existing record in logos.
+Updates status (“in_progress” → “completed” or “failed”) and imageUrl.
+Database schema (Drizzle ORM)
+
+// Reuse /db/schema/logos.ts (same as above)
+// The existing table supports both features
+Edge cases or assumptions
+AI service may fail or time out → set status = “failed” and surface error to user.
+Rate-limit API calls to avoid exceeding free tier.
+Store timestamp of last update (via updatedAt).
+3.3 Display Generated Logo
+Plain-language description & user journey
+
+User is redirected to a “My Logos” or “Results” page.
+UI polls or fetches the logos row by ID.
+If status = “completed”, renders the imageUrl.
+If pending/in_progress, shows a spinner.
+If failed, shows an error message and retry button.
+Interaction & dependencies
+
+Reads data from the same logos table.
+May re-invoke Generate Logo on retry.
+Database schema (Drizzle ORM)
+
+// Reuse /db/schema/logos.ts
+Edge cases or assumptions
+Broken or expired imageUrl: show placeholder + “regenerate” CTA.
+User can regenerate multiple times (creates a new record or updates existing).
+4. Overall Build Roadmap
+Author Drizzle schema files under /db/schema
+Generate query helpers under /db/queries
+Implement CRUD server actions under /actions
+Configure Clerk authentication (protected app routes)
+Scaffold baseline UI with ShadCN (one folder per feature under /components/<kebab-feature-name>)
+Implement features iteratively in this order:
+a. Input Brand Name (form + DB write)
+b. Generate Logo (server action + AI integration)
+c. Display Generated Logo (UI polling & rendering)
+Write unit & integration tests; set up CI/CD pipeline
+Deploy to Vercel; configure environment variables (Supabase, Clerk, OpenAI API key)
+5. Suggested File / Folder Structure
+/app
+  /actions
+    create-logo.ts
+  /components
+    /input-brand-name
+      Form.tsx
+      styles.css
+    /generate-logo
+      Trigger.tsx
+    /display-generated-logo
+      Viewer.tsx
+      Spinner.tsx
+  /db
+    /schema
+      logos.ts
+    /queries
+      logos.ts
+  /pages
+    index.tsx            # Landing / Auth check
+    /create-logo
+      page.tsx
+    /my-logos
+      page.tsx
+  /utils
+    aiClient.ts           # OpenAI wrapper
+    auth.ts               # Clerk helpers
+  layout.tsx
+  globals.css
+/vercel.json
+/package.json
+/tsconfig.json
+6. Technology Stack
+Next.js 14 (App Router & SSR)
+React
+Supabase Postgres
+Drizzle ORM
+Clerk (Auth)
+Tailwind CSS + ShadCN UI
+Deployment: Vercel
+OpenAI API
+React Flow (optional for future UI workflows)
+7. Non-Functional Requirements (optional)
+Performance: SSR for core pages; caching of AI responses.
+Scalability: Serverless functions for AI calls; horizontal DB scaling via Supabase.
+Security: Clerk ensures authentication; HTTPS everywhere; sanitize inputs.
+Logging & Monitoring: Vercel logs; integrate Sentry.
+Rate Limiting: Throttle logo-generation requests per user/IP.
+8. Future Considerations (optional)
+Allow icon/style customization (colors, fonts, shapes).
+Export in multiple formats (SVG, PNG, PDF).
+Version history & rollback for logos.
+Team collaboration (shared brand profiles).
+Analytics dashboard (popular styles, usage metrics).
